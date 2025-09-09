@@ -8,12 +8,16 @@ def preprocess_line_image(line_image):
     Comprehensive preprocessing with 
     noise removal and slant correction.
     """
+    cv2.imwrite("/home/ml3/Desktop/Thesis/.venv/02_WordSegmentation/output/0_original.png", line_image)
+
     # Converting to grayscale if needed.
     if len(line_image.shape) == 3:
         gray = cv2.cvtColor(line_image, cv2.COLOR_BGR2GRAY)
     else:
         gray = line_image
     
+    cv2.imwrite("/home/ml3/Desktop/Thesis/.venv/02_WordSegmentation/output/1_grayscale.png", gray)
+
     # Binarization with adaptive thresholding.
     binary = cv2.adaptiveThreshold(
         gray, 255, cv2.ADAPTIVE_THRESH_GAUSSIAN_C, 
@@ -42,44 +46,43 @@ def preprocess_line_image(line_image):
     for i in range(1, num_labels):
         if stats[i, cv2.CC_STAT_AREA] > min_size:
             cleaned[labels == i] = 255
+
+    cv2.imwrite("/home/ml3/Desktop/Thesis/.venv/02_WordSegmentation/output/2_cleaned.png", cleaned)
     
-    # Slant correction using projection profile analysis.
+    # Slant correction using a Hough-based stroke detector.
     def estimate_slant_angle(image):
         """
-        Estimating the slant angle using 
-        projection profile analysis.
+        Estimate text slant angle (character shear) using Hough transform.
         """
-        height, width = image.shape
-        angles = np.arange(-30, 31, 1)  # Testing angles from -30 to 30 degrees.
-        
-        best_angle = 0
-        best_variance = 0
-        
-        for angle in angles:
-            # Shearing the image.
-            shear_matrix = np.float32([[1, -np.tan(angle * np.pi / 180), 0],
-                                     [0, 1, 0]])
-            sheared = cv2.warpAffine(image, shear_matrix, (width, height))
-            
-            # Calculating vertical projection variance.
-            vertical_projection = np.sum(sheared, axis=1)
-            variance = np.var(vertical_projection)
-            
-            if variance > best_variance:
-                best_variance = variance
-                best_angle = angle
-        
-        return best_angle
+        edges = cv2.Canny(image, 50, 150, apertureSize=3)
+        lines = cv2.HoughLines(edges, 1, np.pi / 180, threshold=80)
+
+        angles = []
+        if lines is not None:
+            for rho, theta in lines[:, 0]:
+                # Only considering near-vertical lines (to measure slant).
+                angle = (theta - np.pi/2) * 180 / np.pi
+                if -45 < angle < 45:  # Filtering extremes.
+                    angles.append(angle)
+
+        if len(angles) > 0:
+            return np.median(angles)
+        else:
+            return 0
     
     slant_angle = estimate_slant_angle(cleaned)
+    print("Slant angle:", slant_angle)
     
     # Applying slant correction.
     if abs(slant_angle) > 1:  # Only correct if significant slant.
         shear_matrix = np.float32([[1, -np.tan(slant_angle * np.pi / 180), 0],
                                  [0, 1, 0]])
         rows, cols = cleaned.shape
+
+        # Applying the changes to both the cleaned binary image and the original image.
         corrected = cv2.warpAffine(cleaned, shear_matrix, (cols, rows))
     else:
         corrected = cleaned
     
+    cv2.imwrite("/home/ml3/Desktop/Thesis/.venv/02_WordSegmentation/output/3_preprocessed.png", corrected)
     return corrected, slant_angle
