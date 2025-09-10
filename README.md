@@ -4,6 +4,14 @@ Python implementation of the 2016 [paper](https://users.iit.demokritos.gr/~bgat/
 <img width="1682" height="153" alt="image" src="https://github.com/user-attachments/assets/879a9c68-3ba9-4e80-b7b4-f522a0e507f3" />
 <img width="4470" height="1631" alt="image" src="https://github.com/user-attachments/assets/a1e6b1bb-94c0-4edc-9282-d5630ea53658" />
 
+# Usage
+After installing the required dependencies, the code can be executed in the command line as follows:
+```bash
+python segment_words.py --img_path "/path/to/image.png" --expected_words INT
+```
+where:
+- `--img_path`         | The path to a text line you want to segment.
+- `--expected_words`   | The number of words you expect in the given line.  
 
 # Structure
 - `segment_words.py`   | Main word segmentation pipeline.            
