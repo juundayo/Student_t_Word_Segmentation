@@ -1,5 +1,6 @@
 import os
 import glob
+import argparse
 
 import numpy as np
 import cv2
@@ -11,8 +12,8 @@ from student_t import StudentsTMixtureModel
 
 # ----------------------------------------------------------------------------#
 
-EXPECTED_WORDS = 4
-IMG_PATH = "/home/ml3/Desktop/Thesis/.venv/02_WordSegmentation/data/Screenshot_25.png"
+EXPECTED_WORDS = 8
+IMG_PATH = "/home/ml3/Desktop/Thesis/.venv/02_WordSegmentation/data/LineImages/029_4_L_03.tif"
 
 # ----------------------------------------------------------------------------#
 
@@ -257,8 +258,16 @@ def clean_folder(folder="/home/ml3/Desktop/Thesis/.venv/02_WordSegmentation/outp
 # ----------------------------------------------------------------------------#
 
 if __name__ == "__main__":
-    expected_words = EXPECTED_WORDS
-    path = IMG_PATH
+
+    parser = argparse.ArgumentParser(description="Word segmentation with expected word count")
+    parser.add_argument("--img_path", type=str, required=True, 
+                        default=IMG_PATH, help="Path to the input image")
+    parser.add_argument("--expected_words", type=int, required=True, 
+                        default=EXPECTED_WORDS, help="Expected number of words in the line")
+    args = parser.parse_args()
+
+    expected_words = args.expected_words
+    path = args.img_path
 
     img = cv2.imread(path)
     if img is None:
