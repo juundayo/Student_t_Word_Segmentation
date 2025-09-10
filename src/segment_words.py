@@ -1,15 +1,24 @@
+import os
+import glob
+
 import numpy as np
 import cv2
-from scipy.special import digamma, gamma
 import matplotlib.pyplot as plt
 
 from preprocessing import preprocess_line_image
 from distances import compute_distances
 from student_t import StudentsTMixtureModel
 
+# ----------------------------------------------------------------------------#
+
+EXPECTED_WORDS = 4
+IMG_PATH = "/home/ml3/Desktop/Thesis/.venv/02_WordSegmentation/data/Screenshot_25.png"
+
+# ----------------------------------------------------------------------------#
+
 def segment_words(line_image, expected_word_count):
     """
-    Complete word segmentation with expected word count integration
+    Complete word segmentation with expected word count integration.
     """
     # Line preprocessing.
     preprocessed, slant_angle = preprocess_line_image(line_image)
@@ -70,12 +79,12 @@ def segment_words(line_image, expected_word_count):
     
     words.append(current_word_components)
     
-    # Extract word images.
+    # Extracting word images.
     word_images = []
     word_bboxes = []
     
     for word_components in words:
-        # Flatten all components in the word.
+        # Flattening all components in the word.
         all_components = []
 
         for comp_list in word_components:
@@ -95,9 +104,9 @@ def segment_words(line_image, expected_word_count):
         max_x = max(comp['bbox'][0] + comp['bbox'][2] for comp in all_components)
         min_y = min(comp['bbox'][1] for comp in all_components)
         max_y = max(comp['bbox'][1] + comp['bbox'][3] for comp in all_components)
-        
-        # Addding some padding.
-        padding = 20
+
+        padding = 2
+
         min_x = max(0, min_x - padding)
         min_y = max(0, min_y - padding)
         max_x = min(line_image.shape[1], max_x + padding)
@@ -106,6 +115,13 @@ def segment_words(line_image, expected_word_count):
         word_img = line_image[min_y:max_y, min_x:max_x]
         word_images.append(word_img)
         word_bboxes.append((min_x, min_y, max_x - min_x, max_y - min_y))
+
+        # Debug saving.
+        debug_image = line_image.copy()
+        cv2.rectangle(debug_image, (min_x, min_y), (max_x, max_y), (0, 255, 0), 2)
+        cv2.putText(debug_image, f'Word {len(word_images)}', (min_x, min_y - 10),
+                    cv2.FONT_HERSHEY_SIMPLEX, 0.5, (0, 255, 0), 1)
+        cv2.imwrite(f'/home/ml3/Desktop/Thesis/.venv/02_WordSegmentation/output/debug_word_{len(word_images)}.png', debug_image)
     
     # Verifying if we have the expected number of words.
     if len(word_images) != expected_word_count:
@@ -120,6 +136,29 @@ def segment_words(line_image, expected_word_count):
         # Re-segment.
         return segment_words(line_image, expected_word_count)
     
+    '''
+    # Reattaching tonos to the nearest word. 
+    for tonos in tonos_components:
+        tx, ty, tw, th = tonos['bbox']
+        tonos_center = (tx + tw/2, ty + th/2)
+
+        best_word_idx = None
+        best_dist = float('inf')
+        for i, (wx, wy, ww, wh) in enumerate(word_bboxes):
+            word_center = (wx + ww/2, wy + wh/2)
+            dist = np.sqrt((word_center[0] - tonos_center[0])**2 + (word_center[1] - tonos_center[1])**2)
+            if dist < best_dist:
+                best_dist = dist
+                best_word_idx = i
+
+        if best_word_idx is not None:
+            wx, wy, ww, wh = word_bboxes[best_word_idx]
+            min_x = min(wx, tx)
+            min_y = min(wy, ty)
+            max_x = max(wx + ww, tx + tw)
+            max_y = max(wy + wh, ty + th)
+            word_bboxes[best_word_idx] = (min_x, min_y, max_x - min_x, max_y - min_y)
+    '''
     return word_images, distances, gap_predictions, stmm
 
 # ----------------------------------------------------------------------------#
@@ -187,7 +226,7 @@ def visualize_segmentation(line_image, word_images, distances, predictions, stmm
         ax.set_title(f'Word {i+1}')
         ax.axis('off')
 
-    # Hide unused subplots
+    # Hide unused subplots.
     for j in range(len(word_images), len(axes_words)):
         axes_words[j].axis('off')
 
@@ -206,14 +245,27 @@ def visualize_segmentation(line_image, word_images, distances, predictions, stmm
         
 # ----------------------------------------------------------------------------#
 
-if __name__ == "__main__":
-    expected_words = 4
-    path = "/home/ml3/Desktop/Thesis/.venv/02_WordSegmentation/data/Screenshot_25.png"
-    img = cv2.imread(path)
+def clean_folder(folder="/home/ml3/Desktop/Thesis/.venv/02_WordSegmentation/output"):
+    img_patterns = ('*.png', '*.jpg', '*.jpeg', '*.bmp', '*.gif', '*.tiff')
+    for pattern in img_patterns:
+        for img_path in glob.glob(os.path.join(folder, pattern)):
+            try:
+                os.remove(img_path)
+            except OSError as e:
+                print(f"Could not delete {img_path}: {e}")
 
+# ----------------------------------------------------------------------------#
+
+if __name__ == "__main__":
+    expected_words = EXPECTED_WORDS
+    path = IMG_PATH
+
+    img = cv2.imread(path)
     if img is None:
         raise Exception("Image is empty or corrupted", path)
     
+    clean_folder()
+
     word_images, distances, gap_predictions, stmm = segment_words(
             line_image=img, 
             expected_word_count=expected_words
