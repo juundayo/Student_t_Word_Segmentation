@@ -1,14 +1,16 @@
+import os
 import cv2
 import numpy as np
 
 # ----------------------------------------------------------------------------#
 
-def preprocess_line_image(line_image):
+def preprocess_line_image(line_image, output):
     """
     Comprehensive preprocessing with 
     noise removal and slant correction.
     """
-    cv2.imwrite("/home/ml3/Desktop/Thesis/.venv/02_WordSegmentation/output/0_original.png", line_image)
+    path = os.path.join(output, "0_original.png")
+    cv2.imwrite(path, line_image)
 
     # Converting to grayscale if needed.
     if len(line_image.shape) == 3:
@@ -16,7 +18,8 @@ def preprocess_line_image(line_image):
     else:
         gray = line_image
     
-    cv2.imwrite("/home/ml3/Desktop/Thesis/.venv/02_WordSegmentation/output/1_grayscale.png", gray)
+    path = os.path.join(output, "1_grayscale.png")
+    cv2.imwrite(path, gray)
 
     # Binarization with adaptive thresholding.
     binary = cv2.adaptiveThreshold(
@@ -31,14 +34,14 @@ def preprocess_line_image(line_image):
     
     # Removing small connected components (noise).
     num_labels, labels, stats, _ = cv2.connectedComponentsWithStats(
-        binary, connectivity=8
+        binary, connectivity = 8
     )
     
     # Calculating median component area for adaptive thresholding.
     areas = stats[1:, cv2.CC_STAT_AREA]
     if len(areas) > 0:
         median_area = np.median(areas)
-        min_size = int(median_area * 0.1)  # 10% of median area.
+        min_size = int(median_area * 0.02)  # 10% of median area.
     else:
         min_size = 10
     
@@ -47,7 +50,8 @@ def preprocess_line_image(line_image):
         if stats[i, cv2.CC_STAT_AREA] > min_size:
             cleaned[labels == i] = 255
 
-    cv2.imwrite("/home/ml3/Desktop/Thesis/.venv/02_WordSegmentation/output/2_cleaned.png", cleaned)
+    path = os.path.join(output, "2_cleaned.png")
+    cv2.imwrite(path, cleaned)
     
     # Slant correction using a Hough-based stroke detector.
     def estimate_slant_angle(image):
@@ -84,5 +88,6 @@ def preprocess_line_image(line_image):
     else:
         corrected = cleaned
     
-    cv2.imwrite("/home/ml3/Desktop/Thesis/.venv/02_WordSegmentation/output/3_preprocessed.png", corrected)
+    path = os.path.join(output, "3_deslanted.png")
+    cv2.imwrite(path, corrected)
     return corrected, slant_angle
