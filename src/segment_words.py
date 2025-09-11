@@ -9,6 +9,7 @@ import matplotlib.pyplot as plt
 from preprocessing import preprocess_line_image
 from distances import compute_distances
 from student_t import StudentsTMixtureModel
+from plot_results import create_color_coded_image, create_numeric_encoded_image
 
 # ----------------------------------------------------------------------------#
 
@@ -29,7 +30,7 @@ def segment_words(line_image, expected_word_count):
     
     if len(distances) == 0:
         # Single word case.
-        return [line_image], distances, np.array([]), None
+        return [line_image], distances, np.array([]), None, [(0, 0, line_image.shape[1], line_image.shape[0])]
     
     # Fitting Student's-t mixture model.
     stmm = StudentsTMixtureModel(n_components=2, max_iter=200, tol=1e-10)
@@ -83,6 +84,18 @@ def segment_words(line_image, expected_word_count):
     # Extracting word images.
     word_images = []
     word_bboxes = []
+
+    if abs(slant_angle) > 1:
+        # Create reverse shear matrix
+        reverse_shear_matrix = np.float32([[1, np.tan(slant_angle * np.pi / 180), 0],
+                                         [0, 1, 0]])
+        rows, cols = line_image.shape[:2]
+        
+        # Function to transform a point using the reverse shear
+        def reverse_slant_point(x, y):
+            point = np.array([x, y, 1])
+            transformed = reverse_shear_matrix @ point
+            return int(transformed[0]), int(transformed[1])
     
     for word_components in words:
         # Flattening all components in the word.
@@ -99,12 +112,33 @@ def segment_words(line_image, expected_word_count):
 
         if not all_components:
             continue
+
+        # Transforming component coordinates back to original image space!
+        bboxes_original = []
+        for comp in all_components:
+            x, y, w, h = comp['bbox']
+            if abs(slant_angle) > 1:
+                # Transforming all four corners back to original coordinates.
+                tl_x, tl_y = reverse_slant_point(x, y)
+                tr_x, tr_y = reverse_slant_point(x + w, y)
+                bl_x, bl_y = reverse_slant_point(x, y + h)
+                br_x, br_y = reverse_slant_point(x + w, y + h)
+                
+                # Finding the bounding box of transformed points.
+                min_x = min(tl_x, tr_x, bl_x, br_x)
+                max_x = max(tl_x, tr_x, bl_x, br_x)
+                min_y = min(tl_y, tr_y, bl_y, br_y)
+                max_y = max(tl_y, tr_y, bl_y, br_y)
+                
+                bboxes_original.append((min_x, min_y, max_x - min_x, max_y - min_y))
+            else:
+                bboxes_original.append((x, y, w, h))
         
         # Finding the bounding box for all components in the word.
-        min_x = min(comp['bbox'][0] for comp in all_components)
-        max_x = max(comp['bbox'][0] + comp['bbox'][2] for comp in all_components)
-        min_y = min(comp['bbox'][1] for comp in all_components)
-        max_y = max(comp['bbox'][1] + comp['bbox'][3] for comp in all_components)
+        min_x = min(b[0] for b in bboxes_original)
+        max_x = max(b[0] + b[2] for b in bboxes_original)
+        min_y = min(b[1] for b in bboxes_original)
+        max_y = max(b[1] + b[3] for b in bboxes_original)
 
         padding = 2
 
@@ -136,31 +170,8 @@ def segment_words(line_image, expected_word_count):
         
         # Re-segment.
         return segment_words(line_image, expected_word_count)
-    
-    '''
-    # Reattaching tonos to the nearest word. 
-    for tonos in tonos_components:
-        tx, ty, tw, th = tonos['bbox']
-        tonos_center = (tx + tw/2, ty + th/2)
 
-        best_word_idx = None
-        best_dist = float('inf')
-        for i, (wx, wy, ww, wh) in enumerate(word_bboxes):
-            word_center = (wx + ww/2, wy + wh/2)
-            dist = np.sqrt((word_center[0] - tonos_center[0])**2 + (word_center[1] - tonos_center[1])**2)
-            if dist < best_dist:
-                best_dist = dist
-                best_word_idx = i
-
-        if best_word_idx is not None:
-            wx, wy, ww, wh = word_bboxes[best_word_idx]
-            min_x = min(wx, tx)
-            min_y = min(wy, ty)
-            max_x = max(wx + ww, tx + tw)
-            max_y = max(wy + wh, ty + th)
-            word_bboxes[best_word_idx] = (min_x, min_y, max_x - min_x, max_y - min_y)
-    '''
-    return word_images, distances, gap_predictions, stmm
+    return word_images, distances, gap_predictions, stmm, word_bboxes
 
 # ----------------------------------------------------------------------------#
 
@@ -260,9 +271,9 @@ def clean_folder(folder="/home/ml3/Desktop/Thesis/.venv/02_WordSegmentation/outp
 if __name__ == "__main__":
 
     parser = argparse.ArgumentParser(description="Word segmentation with expected word count")
-    parser.add_argument("--img_path", type=str, required=True, 
+    parser.add_argument("--img_path", type=str, required=False, 
                         default=IMG_PATH, help="Path to the input image")
-    parser.add_argument("--expected_words", type=int, required=True, 
+    parser.add_argument("--expected_words", type=int, required=False, 
                         default=EXPECTED_WORDS, help="Expected number of words in the line")
     args = parser.parse_args()
 
@@ -275,11 +286,17 @@ if __name__ == "__main__":
     
     clean_folder()
 
-    word_images, distances, gap_predictions, stmm = segment_words(
+    word_images, distances, gap_predictions, stmm, word_bboxes = segment_words(
             line_image=img, 
             expected_word_count=expected_words
         )
     
+    color_coded = create_color_coded_image(
+        line_image=img,
+        word_bboxes=word_bboxes,  
+        output_path="/home/ml3/Desktop/Thesis/.venv/02_WordSegmentation/output/color_coded_words.png"
+    )
+
     print("\n=== SEGMENTATION RESULTS ===")
     print(f"Number of distances between components: {len(distances)}")
     print(f"Number of words segmented: {len(word_images)}")
