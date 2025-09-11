@@ -156,7 +156,7 @@ def segment_words(line_image, expected_word_count):
         cv2.rectangle(debug_image, (min_x, min_y), (max_x, max_y), (0, 255, 0), 2)
         cv2.putText(debug_image, f'Word {len(word_images)}', (min_x, min_y - 10),
                     cv2.FONT_HERSHEY_SIMPLEX, 0.5, (0, 255, 0), 1)
-        cv2.imwrite(f'/home/ml3/Desktop/Thesis/.venv/02_WordSegmentation/output/debug_word_{len(word_images)}.png', debug_image)
+        cv2.imwrite(f'{args.output}/debug_word_{len(word_images)}.png', debug_image)
     
     # Verifying if we have the expected number of words.
     if len(word_images) != expected_word_count:
@@ -243,7 +243,7 @@ def visualize_segmentation(line_image, word_images, distances, predictions, stmm
         axes_words[j].axis('off')
 
     plt.tight_layout()
-    plt.savefig("/home/ml3/Desktop/Thesis/.venv/02_WordSegmentation/output/vis_segmentation.png", 
+    plt.savefig(f"{args.output}/6_vis_segmentation.png", 
                 dpi=300, bbox_inches='tight')
     plt.show()
     
@@ -275,10 +275,13 @@ if __name__ == "__main__":
                         default=IMG_PATH, help="Path to the input image")
     parser.add_argument("--expected_words", type=int, required=False, 
                         default=EXPECTED_WORDS, help="Expected number of words in the line")
+    parser.add_argument("--output", type=str, required=False,
+                        default="/home/ml3/Desktop/Thesis/.venv/02_WordSegmentation/output", help="The output folder")
     args = parser.parse_args()
 
     expected_words = args.expected_words
     path = args.img_path
+    output = args.output
 
     img = cv2.imread(path)
     if img is None:
@@ -294,7 +297,13 @@ if __name__ == "__main__":
     color_coded = create_color_coded_image(
         line_image=img,
         word_bboxes=word_bboxes,  
-        output_path="/home/ml3/Desktop/Thesis/.venv/02_WordSegmentation/output/color_coded_words.png"
+        output_path=output
+    )
+
+    bit_coded = create_numeric_encoded_image(
+        line_image=img,
+        word_bboxes=word_bboxes,
+        output_path=output
     )
 
     print("\n=== SEGMENTATION RESULTS ===")
