@@ -2,7 +2,7 @@
 Python implementation of the 2016 [paper](https://users.iit.demokritos.gr/~bgat/DAS2016_sfikas.pdf) by Louloudis et. al. with an expected words feature to solve the transcript mapping problem efficiently.
 
 <img width="1682" height="153" alt="image" src="https://github.com/user-attachments/assets/879a9c68-3ba9-4e80-b7b4-f522a0e507f3" />
-<img width="4470" height="1631" alt="image" src="https://github.com/user-attachments/assets/a1e6b1bb-94c0-4edc-9282-d5630ea53658" />
+<img width="4470" height="1631" alt="image" src="https://github.com/user-attachments/assets/59e0f4fe-de7e-4929-9cc7-ffca212df0c5" />
 
 # Usage
 After installing the required dependencies, the code can be executed in the command line as follows:
