@@ -7,10 +7,11 @@ Python implementation of the 2016 [paper](https://users.iit.demokritos.gr/~bgat/
 # Usage
 After installing the required dependencies, the code can be executed in the command line as follows:
 ```bash
-python segment_words.py --img_path "/path/to/image.png" --expected_words INT
+python segment_words.py --img_path "/path/to/image.png" --output "/output/folder --expected_words INT
 ```
 where:
 - `--img_path`         | The path to a text line you want to segment.
+- `--output`           | The path to the output folder.
 - `--expected_words`   | The number of words you expect in the given line.  
 
 # Structure
